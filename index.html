@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>DEFLECTOR ONLINE RPG</title>
+
+<style>
+body{
+margin:0;
+overflow:hidden;
+font-family:Arial;
+background:#050510;
+color:white;
+}
+
+canvas{
+display:block;
+background:#101020;
+touch-action:none;
+}
+
+#menu{
+position:fixed;
+inset:0;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+background:#050510;
+z-index:100;
+}
+
+#ui{
+position:absolute;
+top:10px;
+left:10px;
+background:#111122cc;
+padding:10px;
+border:2px solid #00ffcc;
+z-index:10;
+width:260px;
+}
+
+button{
+padding:10px 16px;
+margin:4px;
+border:none;
+background:#00ffcc;
+font-weight:bold;
+cursor:pointer;
+border-radius:8px;
+}
+
+.inventory{
+margin-top:10px;
+max-height:120px;
+overflow:auto;
+background:#0006;
+padding:5px;
+}
+
+.quest{
+margin-top:8px;
+font-size:14px;
+}
+
+#chat{
+position:absolute;
+bottom:10px;
+left:10px;
+width:300px;
+background:#111122cc;
+padding:10px;
+z-index:10;
+}
+
+input{
+padding:8px;
+width:200px;
+}
+</style>
+</head>
+<body>
+
+<div id="menu">
+<h1 style="color:#00ffcc;font-size:60px;">
+DEFLECTOR ONLINE RPG
+</h1>
+
+<input id="username" placeholder="ENTER NAME">
+
+<button onclick="startGame()">
+PLAY ONLINE
+</button>
+</div>
+
+<div id="ui">
+
+<div>PLAYER: <span id="playerName">NONE</span></div>
+<div>LEVEL: <span id="level">1</span></div>
+<div>XP: <span id="xp">0</span></div>
+<div>HP: <span id="hp">100</span></div>
+<div>COINS: <span id="coins">0</span></div>
+<div>MAP: <span id="mapName">GRASSLAND</span></div>
+
+<button onclick="spawnPet()">SPAWN PET</button>
+<button onclick="craftItem()">CRAFT</button>
+<button onclick="spawnBoss()">BOSS</button>
+<button onclick="toggleArena()">PVP</button>
+
+<div class="quest">
+QUEST:
+<span id="questText">
+Defeat 5 enemies
+</span>
+</div>
+
+<div class="inventory">
+<b>INVENTORY</b>
+<div id="inventory"></div>
+</div>
+
+</div>
+
+<div id="chat">
+<div id="messages"></div>
+<input id="chatInput" placeholder="chat">
+<button onclick="sendMessage()">SEND</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+let gameStarted = false;
+let pvpMode = false;
+
+const keys = {};
+
+addEventListener("keydown",e=>keys[e.key]=true);
+addEventListener("keyup",e=>keys[e.key]=false);
+
+const player = {
+x:500,
+y:500,
+size:25,
+speed:5,
+hp:100,
+level:1,
+xp:0,
+coins:0,
+name:"",
+pet:null
+};
+
+const camera = {
+x:0,
+y:0
+};
+
+const enemies = [];
+const bullets = [];
+const pets = [];
+const bosses = [];
+const items = [];
+const particles = [];
+
+const inventory = [];
+
+const maps = [
+"GRASSLAND",
+"DESERT",
+"ICE",
+"VOLCANO"
+];
+
+function currentMap(){
+return maps[
+Math.floor(player.x/3000)%maps.length
+];
+}
+
+function startGame(){
+
+player.name =
+document.getElementById("username").value || "PLAYER";
+
+document.getElementById("playerName")
+.textContent = player.name;
+
+document.getElementById("menu").style.display="none";
+
+gameStarted = true;
+
+}
+
+canvas.addEventListener("click",e=>{
+
+if(!gameStarted) return;
+
+const angle = Math.atan2(
+e.clientY-canvas.height/2,
+e.clientX-canvas.width/2
+);
+
+bullets.push({
+x:player.x,
+y:player.y,
+dx:Math.cos(angle)*10,
+dy:Math.sin(angle)*10,
+size:6
+});
+
+});
+
+function spawnEnemy(){
+
+const angle = Math.random()*Math.PI*2;
+
+enemies.push({
+x:player.x+Math.cos(angle)*900,
+y:player.y+Math.sin(angle)*900,
+size:20,
+hp:5+player.level,
+speed:1+Math.random()*2
+});
+
+}
+
+function spawnBoss(){
+
+bosses.push({
+x:player.x+700,
+y:player.y,
+size:80,
+hp:200,
+speed:1.2
+});
+
+}
+
+function spawnPet(){
+
+pets.push({
+x:player.x,
+y:player.y,
+size:15,
+color:"lime"
+});
+
+inventory.push("PET CORE");
+
+updateInventory();
+
+}
+
+function craftItem(){
+
+if(player.coins>=20){
+
+player.coins-=20;
+
+inventory.push("MEGA SWORD");
+
+updateInventory();
+
+}
+
+}
+
+function updateInventory(){
+
+document.getElementById("inventory")
+innerHTML = inventory.join("<br>");
+
+}
+
+function toggleArena(){
+
+pvpMode=!pvpMode;
+
+alert(
+pvpMode ?
+"PVP ENABLED" :
+"PVP DISABLED"
+);
+
+}
+
+function sendMessage(){
+
+const input =
+document.getElementById("chatInput");
+
+const msg = input.value;
+
+if(msg.length<1) return;
+
+const div = document.createElement("div");
+
+div.textContent =
+player.name + ": " + msg;
+
+document.getElementById("messages")
+.appendChild(div);
+
+input.value="";
+
+}
+
+function update(){
+
+if(!gameStarted) return;
+
+if(keys["w"]) player.y-=player.speed;
+if(keys["s"]) player.y+=player.speed;
+if(keys["a"]) player.x-=player.speed;
+if(keys["d"]) player.x+=player.speed;
+
+camera.x = player.x-canvas.width/2;
+camera.y = player.y-canvas.height/2;
+
+bullets.forEach((b,bi)=>{
+
+b.x+=b.dx;
+b.y+=b.dy;
+
+});
+
+enemies.forEach((e,ei)=>{
+
+const angle = Math.atan2(
+player.y-e.y,
+player.x-e.x
+);
+
+e.x+=Math.cos(angle)*e.speed;
+e.y+=Math.sin(angle)*e.speed;
+
+bullets.forEach((b,bi)=>{
+
+const d = Math.hypot(
+b.x-e.x,
+b.y-e.y
+);
+
+if(d<e.size){
+
+e.hp--;
+
+bullets.splice(bi,1);
+
+if(e.hp<=0){
+
+player.xp+=10;
+player.coins+=5;
+
+enemies.splice(ei,1);
+
+inventory.push("MONSTER PART");
+
+updateInventory();
+
+}
+
+}
+
+});
+
+});
+
+bosses.forEach((b,bi)=>{
+
+const angle = Math.atan2(
+player.y-b.y,
+player.x-b.x
+);
+
+b.x+=Math.cos(angle)*b.speed;
+b.y+=Math.sin(angle)*b.speed;
+
+bullets.forEach((shot,si)=>{
+
+const d = Math.hypot(
+shot.x-b.x,
+shot.y-b.y
+);
+
+if(d<b.size){
+
+b.hp-=2;
+
+bullets.splice(si,1);
+
+if(b.hp<=0){
+
+player.level++;
+player.coins+=100;
+
+bosses.splice(bi,1);
+
+inventory.push("BOSS GEM");
+
+updateInventory();
+
+}
+
+}
+
+});
+
+});
+
+pets.forEach(p=>{
+
+p.x += (player.x-p.x)*0.05;
+p.y += (player.y-p.y)*0.05;
+
+});
+
+if(player.xp >= player.level*50){
+
+player.xp=0;
+player.level++;
+
+}
+
+document.getElementById("level")
+.textContent = player.level;
+
+document.getElementById("xp")
+.textContent = player.xp;
+
+document.getElementById("coins")
+.textContent = player.coins;
+
+document.getElementById("hp")
+.textContent = player.hp;
+
+document.getElementById("mapName")
+.textContent = currentMap();
+
+}
+
+function drawMap(){
+
+const map = currentMap();
+
+if(map==="GRASSLAND"){
+ctx.fillStyle="#163816";
+}
+
+if(map==="DESERT"){
+ctx.fillStyle="#665522";
+}
+
+if(map==="ICE"){
+ctx.fillStyle="#335577";
+}
+
+if(map==="VOLCANO"){
+ctx.fillStyle="#441111";
+}
+
+ctx.fillRect(0,0,canvas.width,canvas.height);
+
+}
+
+function draw(){
+
+drawMap();
+
+ctx.save();
+
+ctx.translate(-camera.x,-camera.y);
+
+for(let x=-4000;x<8000;x+=100){
+
+for(let y=-4000;y<8000;y+=100){
+
+ctx.strokeStyle="#ffffff08";
+
+ctx.strokeRect(x,y,100,100);
+
+}
+
+}
+
+ctx.beginPath();
+ctx.fillStyle="#00ffcc";
+ctx.arc(
+player.x,
+player.y,
+player.size,
+0,
+Math.PI*2
+);
+ctx.fill();
+
+ctx.fillStyle="white";
+ctx.fillText(
+player.name,
+player.x-20,
+player.y-35
+);
+
+bullets.forEach(b=>{
+
+ctx.beginPath();
+ctx.fillStyle="yellow";
+ctx.arc(b.x,b.y,b.size,0,Math.PI*2);
+ctx.fill();
+
+});
+
+enemies.forEach(e=>{
+
+ctx.beginPath();
+ctx.fillStyle="orange";
+ctx.arc(e.x,e.y,e.size,0,Math.PI*2);
+ctx.fill();
+
+});
+
+bosses.forEach(b=>{
+
+ctx.beginPath();
+ctx.fillStyle="red";
+ctx.arc(b.x,b.y,b.size,0,Math.PI*2);
+ctx.fill();
+
+ctx.fillStyle="white";
+ctx.fillText(
+"BOSS "+b.hp,
+b.x-30,
+b.y-90
+);
+
+});
+
+pets.forEach(p=>{
+
+ctx.beginPath();
+ctx.fillStyle=p.color;
+ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+ctx.fill();
+
+});
+
+ctx.restore();
+
+}
+
+function loop(){
+
+update();
+draw();
+
+requestAnimationFrame(loop);
+
+}
+
+setInterval(spawnEnemy,1500);
+
+loop();
+</script>
+
+</body>
+</html>
